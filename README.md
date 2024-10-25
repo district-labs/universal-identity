@@ -1,6 +1,4 @@
-![alt text](./banner.png)
-
-# Universal Identity System
+# Universal Identity
 
 The Universal Identity System is a scalable DID standard for the future of Ethereum: 
 
