@@ -1,0 +1,9 @@
+[submodule "lib/smart-wallet"]
+	path = lib/smart-wallet
+	url = https://github.com/coinbase/smart-wallet
+[submodule "lib/surl"]
+	path = lib/surl
+	url = https://github.com/memester-xyz/surl
+[submodule "lib/solady"]
+	path = lib/solady
+	url = https://github.com/vectorized/solady
