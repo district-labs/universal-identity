@@ -91,6 +91,11 @@ Format the contracts:
 $ forge fmt
 ```
 
+## Contributors
+
+- Carl Fairclough @ Oscillator, Inc
+- Kames Geraghty @ District Labs, Inc
+
 ## License
 
 This project is licensed under MIT.
