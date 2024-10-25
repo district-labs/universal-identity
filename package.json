@@ -1,6 +1,6 @@
 {
-  "name": "did-base",
-  "description": "An onchain DID that auto-links to a Coinbase Smart Wallet",
+  "name": "universal-identity-system",
+  "description": "Scalable DID Standard for Ethereum",
   "version": "0.0.0",
   "private": true,
   "author": {
