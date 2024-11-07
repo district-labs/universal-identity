@@ -43,10 +43,11 @@ contract Resolver is Ownable, UniversalSigValidator, Document {
         // If the identifier contract does not exist, an offchain DID document lookup request is initialized.
         // This is because users can update a DID document without deploying a new identity contract.
         if (identifier_.code.length == 0) {
-            bytes memory callData = abi.encodePacked(address(this));
+            bytes memory callData = abi.encodePacked(wallet);
+            bytes memory extraData = callData;
             string[] memory urls_ = new string[](1);
             urls_[0] = url;
-            revert OffchainLookup(address(this), urls_, callData, this.resolve.selector, abi.encodePacked(wallet));
+            revert OffchainLookup(address(this), urls_, callData, this.resolve.selector, extraData);
         }
         // If the identifier contract exists, we trigger a lookup on the contract.
         // This is because the user may change the default URL of the DID document storage.
