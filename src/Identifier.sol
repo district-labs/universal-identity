@@ -29,11 +29,12 @@ contract Identifier is Document, UUPSUpgradeable {
     }
 
     function lookup() external view {
-        bytes memory callData = abi.encodePacked(address(this));
+        bytes memory callData = abi.encodePacked(owner);
+        bytes memory extraData = callData;
         string[] memory urls_ = new string[](1);
         // If the URL is empty, we use the resolver's default  URL.
         urls_[0] = bytes(url).length == 0 ? Resolver(resolver).url() : url;
-        revert OffchainLookup(address(this), urls_, callData, this.resolve.selector, abi.encodePacked(owner));
+        revert OffchainLookup(address(this), urls_, callData, this.resolve.selector, extraData);
     }
 
     function resolve(
