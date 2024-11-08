@@ -2,6 +2,7 @@
 pragma solidity >=0.8.23;
 
 // Library Imports
+import { console2 } from "forge-std/console2.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { EIP712 } from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import { Ownable } from "solady/auth/Ownable.sol";
@@ -32,6 +33,10 @@ contract Resolver is Ownable, UniversalSigValidator, Document, EIP712 {
         url = _url;
     }
 
+    function domainSeparator() public view returns (bytes32) {
+        return _domainSeparatorV4();
+    }
+
     function create(address _account) external returns (address) {
         (bool alreadyDeployed, address instance) =
             LibClone.createDeterministicERC1967(0, implementation, keccak256(abi.encodePacked(_account)));
@@ -60,14 +65,7 @@ contract Resolver is Ownable, UniversalSigValidator, Document, EIP712 {
         Identifier(identifier_).lookup();
     }
 
-    function resolve(
-        bytes calldata response,
-        bytes calldata extraData
-    )
-        external
-        virtual
-        returns (string memory document)
-    {
+    function resolve(bytes calldata response, bytes calldata extraData) external virtual returns (string memory) {
         (uint16 status, bytes memory signature, string memory document) = abi.decode(response, (uint16, bytes, string));
 
         address account;
@@ -107,6 +105,7 @@ contract Resolver is Ownable, UniversalSigValidator, Document, EIP712 {
     }
 
     function _createDigest(string memory document) internal view returns (bytes32 digest) {
-        digest = _hashTypedDataV4(keccak256(abi.encode(UNIVERSAL_DID_TYPEHASH, document)));
+        bytes32 documentHash = keccak256(abi.encode(UNIVERSAL_DID_TYPEHASH, keccak256(bytes(document))));
+        digest = _hashTypedDataV4(documentHash);
     }
 }

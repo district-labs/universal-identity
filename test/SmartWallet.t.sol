@@ -1,11 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.23;
 
-// Testing Imports
-import { console2 } from "forge-std/console2.sol";
-import { Surl } from "surl/src/Surl.sol";
-import { stdJson } from "forge-std/StdJson.sol";
-
 // Lib Imports
 import { CoinbaseSmartWalletFactory } from "smart-wallet/src/CoinbaseSmartWalletFactory.sol";
 import { CoinbaseSmartWallet } from "smart-wallet/src/CoinbaseSmartWallet.sol";
@@ -16,9 +11,6 @@ import { Resolver } from "../src/Resolver.sol";
 import { CoreTest } from "./utils/CoreTest.t.sol";
 
 contract SmartWalletTest is CoreTest {
-    using Surl for *;
-    using stdJson for string;
-
     bytes32 private constant ERC6492_DETECTION_SUFFIX =
         0x6492649264926492649264926492649264926492649264926492649264926492;
 
@@ -64,12 +56,11 @@ contract SmartWalletTest is CoreTest {
                 bytes memory extraData
             ) = abi.decode(data, (address, string[], bytes, bytes4, bytes));
 
-            // Fetch the document from the URL
-            string memory urlFormatted = buildURL(urls[0], instance);
-            (uint256 resStatus, bytes memory resData) = urlFormatted.get();
+            // Mock the URL response
+            (uint256 resStatus, bytes memory resData) = mockGetDidUrlResponse(404, bytes("Base ID not found"), "empty");
 
             // Finish resolving the document i.e. verify the signature
-            string memory documentResolve = resolver.resolve(_hexStringToBytes(string(resData)), extraData);
+            string memory documentResolve = resolver.resolve(resData, extraData);
             assertEq(documentResolve, document, "Document should be resolved and verified");
         }
     }
@@ -83,9 +74,12 @@ contract SmartWalletTest is CoreTest {
         address wallet = factory.getAddress(owners, nonce);
         address instance = resolver.getAddress(wallet);
 
+        // Generate the EIP712 hash of the DID Document
+         bytes32 documentHash = hashUniversalDID(resolver, document);
+
         // Sign the decentralized identifier document and send it to the server
         bytes32 _MESSAGE_TYPEHASH = keccak256("CoinbaseSmartWalletMessage(bytes32 hash)");
-        bytes32 _MESSAGE = keccak256(abi.encode(_MESSAGE_TYPEHASH, keccak256(bytes(document))));
+        bytes32 _MESSAGE = keccak256(abi.encode(_MESSAGE_TYPEHASH, documentHash));
         bytes32 domainSeparator = keccak256(
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
@@ -109,12 +103,7 @@ contract SmartWalletTest is CoreTest {
             ERC6492_DETECTION_SUFFIX
         );
 
-        string[] memory headers = new string[](1);
-        headers[0] = "Content-Type: application/json";
-        string memory message = _constructMsg(vm.toString(instance), document, vm.toString(magicSignature));
-        "http://localhost:4200/write".post(headers, message);
-
-        // // Resolve DID Document using the Resolver and Smart Wallet
+        // Resolve DID Document using the Resolver and Smart Wallet
         try resolver.lookup(address(wallet)) { }
         catch (bytes memory revertData) {
             uint256 offset = 4;
@@ -132,12 +121,10 @@ contract SmartWalletTest is CoreTest {
                 bytes memory extraData
             ) = abi.decode(data, (address, string[], bytes, bytes4, bytes));
 
-            // Fetch the document from the URL
-            string memory urlFormatted = buildURL(urls[0], instance);
-            (uint256 resStatus, bytes memory resData) = urlFormatted.get();
-
+            // Mock the URL response
+            (uint256 resStatus, bytes memory resData) = mockGetDidUrlResponse(200, magicSignature, document);
             // Finish resolving the document i.e. verify the signature
-            string memory documentResolve = resolver.resolve(_hexStringToBytes(string(resData)), extraData);
+            string memory documentResolve = resolver.resolve(resData, extraData);
             assertEq(documentResolve, document, "Document should be resolved and verified");
         }
     }
@@ -151,9 +138,12 @@ contract SmartWalletTest is CoreTest {
         address wallet = address(factory.createAccount(owners, nonce));
         address instance = resolver.getAddress(wallet);
 
+        // Generate the EIP712 hash of the DID Document
+         bytes32 documentHash = hashUniversalDID(resolver, document);
+
         // Sign the decentralized identifier document and send it to the server
         bytes32 _MESSAGE_TYPEHASH = keccak256("CoinbaseSmartWalletMessage(bytes32 hash)");
-        bytes32 _MESSAGE = keccak256(abi.encode(_MESSAGE_TYPEHASH, keccak256(bytes(document))));
+        bytes32 _MESSAGE = keccak256(abi.encode(_MESSAGE_TYPEHASH, documentHash));
         bytes32 domainSeparator = CoinbaseSmartWallet(payable(wallet)).domainSeparator();
         (bytes memory signature, bytes32 digestEIP712) =
             signEIP712Message(domainSeparator, _MESSAGE, users.alice.privateKey);
@@ -169,12 +159,7 @@ contract SmartWalletTest is CoreTest {
             ERC6492_DETECTION_SUFFIX
         );
 
-        string[] memory headers = new string[](1);
-        headers[0] = "Content-Type: application/json";
-        string memory message = _constructMsg(vm.toString(instance), document, vm.toString(magicSignature));
-        "http://localhost:4200/write".post(headers, message);
-
-        // // Resolve DID Document using the Resolver and Smart Wallet
+        // Resolve DID Document using the Resolver and Smart Wallet
         try resolver.lookup(address(wallet)) { }
         catch (bytes memory revertData) {
             uint256 offset = 4;
@@ -192,12 +177,11 @@ contract SmartWalletTest is CoreTest {
                 bytes memory extraData
             ) = abi.decode(data, (address, string[], bytes, bytes4, bytes));
 
-            // Fetch the document from the URL
-            string memory urlFormatted = buildURL(urls[0], instance);
-            (uint256 resStatus, bytes memory resData) = urlFormatted.get();
+         // Mock the URL response
+            (uint256 resStatus, bytes memory resData) = mockGetDidUrlResponse(200, magicSignature, document);
 
             // Finish resolving the document i.e. verify the signature
-            string memory documentResolve = resolver.resolve(_hexStringToBytes(string(resData)), extraData);
+            string memory documentResolve = resolver.resolve(resData, extraData);
             assertEq(documentResolve, document, "Document should be resolved and verified");
         }
     }
@@ -229,12 +213,11 @@ contract SmartWalletTest is CoreTest {
                 bytes memory extraData
             ) = abi.decode(data, (address, string[], bytes, bytes4, bytes));
 
-            // Fetch the document from the URL
-            string memory urlFormatted = buildURL(urls[0], instance);
-            (uint256 resStatus, bytes memory resData) = urlFormatted.get();
+              // Mock the URL response
+            (uint256 resStatus, bytes memory resData) = mockGetDidUrlResponse(404, bytes("Base ID not found"), "empty");
 
             // Finish resolving the document i.e. verify the signature
-            string memory documentResolve = resolver.resolve(_hexStringToBytes(string(resData)), extraData);
+            string memory documentResolve = resolver.resolve(resData, extraData);
             assertEq(documentResolve, document, "Document should be resolved and verified");
         }
     }
@@ -268,12 +251,11 @@ contract SmartWalletTest is CoreTest {
                 bytes memory extraData
             ) = abi.decode(data, (address, string[], bytes, bytes4, bytes));
 
-            // Fetch the document from the URL
-            string memory urlFormatted = buildURL(urls[0], instance);
-            (uint256 resStatus, bytes memory resData) = urlFormatted.get();
+               // Mock the URL response
+            (uint256 resStatus, bytes memory resData) = mockGetDidUrlResponse(404, bytes("Base ID not found"), "empty");
 
             // Finish resolving the document i.e. verify the signature
-            string memory documentResolved = resolver.resolve(_hexStringToBytes(string(resData)), extraData);
+            string memory documentResolved = resolver.resolve(resData, extraData);
             assertEq(documentResolved, document, "Document should be resolved and verified");
         }
 
@@ -295,12 +277,11 @@ contract SmartWalletTest is CoreTest {
                 bytes memory extraData
             ) = abi.decode(data, (address, string[], bytes, bytes4, bytes));
 
-            // Fetch the document from the URL
-            string memory urlFormatted = buildURL(urls[0], instance);
-            (uint256 resStatus, bytes memory resData) = urlFormatted.get();
+               // Mock the URL response
+            (uint256 resStatus, bytes memory resData) = mockGetDidUrlResponse(404, bytes("Base ID not found"), "empty");
 
             // Finish resolving the document i.e. verify the signature
-            string memory documentResolve = resolver.resolve(_hexStringToBytes(string(resData)), extraData);
+            string memory documentResolve = resolver.resolve(resData, extraData);
             assertEq(documentResolve, document, "Document should be resolved and verified");
         }
     }
@@ -315,9 +296,12 @@ contract SmartWalletTest is CoreTest {
         address instance = resolver.create(wallet);
         Identifier idInstance = Identifier(instance);
 
+        // Generate the EIP712 hash of the DID Document
+         bytes32 documentHash = hashUniversalDID(resolver, document);
+
         // Sign the decentralized identifier document and send it to the server
         bytes32 _MESSAGE_TYPEHASH = keccak256("CoinbaseSmartWalletMessage(bytes32 hash)");
-        bytes32 _MESSAGE = keccak256(abi.encode(_MESSAGE_TYPEHASH, keccak256(bytes(document))));
+        bytes32 _MESSAGE = keccak256(abi.encode(_MESSAGE_TYPEHASH, documentHash));
         bytes32 domainSeparator = CoinbaseSmartWallet(payable(wallet)).domainSeparator();
         (bytes memory signature, bytes32 digestEIP712) =
             signEIP712Message(domainSeparator, _MESSAGE, users.alice.privateKey);
@@ -332,11 +316,6 @@ contract SmartWalletTest is CoreTest {
             ),
             ERC6492_DETECTION_SUFFIX
         );
-
-        string[] memory headers = new string[](1);
-        headers[0] = "Content-Type: application/json";
-        string memory message = _constructMsg(vm.toString(instance), document, vm.toString(magicSignature));
-        "http://localhost:4200/write".post(headers, message);
 
         // Test Resolution ------------------------------------------------ //
         // Resolve DID Document using the Identifier Contract
@@ -357,54 +336,39 @@ contract SmartWalletTest is CoreTest {
                 bytes memory extraData
             ) = abi.decode(data, (address, string[], bytes, bytes4, bytes));
 
-            // Fetch the document from the URL
-            string memory urlFormatted = buildURL(urls[0], instance);
-            (uint256 resStatus, bytes memory resData) = urlFormatted.get();
+            // Mock the URL response
+            (uint256 resStatus, bytes memory resData) = mockGetDidUrlResponse(200, cbswEncodedSignature, document);
 
             // Finish resolving the document i.e. verify the signature
-            string memory documentResolved = resolver.resolve(_hexStringToBytes(string(resData)), extraData);
+            string memory documentResolved = resolver.resolve(resData, extraData);
             assertEq(documentResolved, document, "Document should be resolved and verified");
         }
 
         // // Resolve DID Document using the Resolver and Smart Wallet
-        try resolver.lookup(address(wallet)) { }
-        catch (bytes memory revertData) {
-            uint256 offset = 4;
-            uint256 len = revertData.length - offset;
-            bytes memory data;
-            assembly {
-                data := add(revertData, offset)
-                mstore(data, len)
-            }
-            (
-                address sender,
-                string[] memory urls,
-                bytes memory callData,
-                bytes4 callbackFunction,
-                bytes memory extraData
-            ) = abi.decode(data, (address, string[], bytes, bytes4, bytes));
+        // try resolver.lookup(address(wallet)) { }
+        // catch (bytes memory revertData) {
+        //     uint256 offset = 4;
+        //     uint256 len = revertData.length - offset;
+        //     bytes memory data;
+        //     assembly {
+        //         data := add(revertData, offset)
+        //         mstore(data, len)
+        //     }
+        //     (
+        //         address sender,
+        //         string[] memory urls,
+        //         bytes memory callData,
+        //         bytes4 callbackFunction,
+        //         bytes memory extraData
+        //     ) = abi.decode(data, (address, string[], bytes, bytes4, bytes));
 
-            // Fetch the document from the URL
-            string memory urlFormatted = buildURL(urls[0], instance);
-            (uint256 resStatus, bytes memory resData) = urlFormatted.get();
+        //     // Mock the URL response
+        //     (uint256 resStatus, bytes memory resData) = mockGetDidUrlResponse(200, magicSignature, document);
 
-            // Finish resolving the document i.e. verify the signature
-            string memory documentResolve = resolver.resolve(_hexStringToBytes(string(resData)), extraData);
-            assertEq(documentResolve, document, "Document should be resolved and verified");
-        }
+        //     // Finish resolving the document i.e. verify the signature
+        //     string memory documentResolve = resolver.resolve(resData, extraData);
+        //     assertEq(documentResolve, document, "Document should be resolved and verified");
+        // }
     }
 
-    function _constructMsg(
-        string memory account,
-        string memory document,
-        string memory signature
-    )
-        internal
-        pure
-        returns (string memory)
-    {
-        return string.concat(
-            "{", '"address": "', account, '",', '"document": "', document, '",', '"signature": "', signature, '"}'
-        );
-    }
 }

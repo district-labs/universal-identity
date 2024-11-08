@@ -37,7 +37,7 @@ The UIS smart contracts utilize [EIP-3668](https://eips.ethereum.org/EIPS/eip-36
 Start Backend:
 
 ```sh
-pnpm ts-node ./server/app.ts
+pnpm run-server
 ```
 
 Run Tests:

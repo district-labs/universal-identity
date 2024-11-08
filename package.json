@@ -10,6 +10,7 @@
   "scripts": {
     "clean": "rm -rf cache out",
     "build": "forge build --via-ir",
+    "run-server": " ts-node ./server/app.ts",
     "lint": "bun run lint:sol && bun run prettier:check",
     "lint:sol": "forge fmt --check && bun solhint \"{script,src,test}/**/*.sol\"",
     "prettier:check": "prettier --check \"**/*.{json,md,yml}\" --ignore-path \".prettierignore\"",
