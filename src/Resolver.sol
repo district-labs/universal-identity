@@ -106,7 +106,7 @@ contract Resolver is Ownable, UniversalSigValidator, Document, EIP712 {
         return LibClone.initCodeHashERC1967(implementation);
     }
 
-    function _createDigest(string memory document) internal pure returns (bytes32 digest) {
+    function _createDigest(string memory document) internal view returns (bytes32 digest) {
         digest = _hashTypedDataV4(keccak256(abi.encode(UNIVERSAL_DID_TYPEHASH, document)));
     }
 }
