@@ -165,7 +165,7 @@ contract EOATest is CoreTest {
         address instance = resolver.create(users.dave.addr);
         Identifier idInstance = Identifier(instance);
 
-         bytes memory signature = signMessage(document, users.dave.privateKey);
+        bytes memory signature = signMessage(document, users.dave.privateKey);
 
         string[] memory headers = new string[](1);
         headers[0] = "Content-Type: application/json";

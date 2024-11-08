@@ -10,7 +10,6 @@ import { UUPSUpgradeable } from "solady/utils/UUPSUpgradeable.sol";
 import { Document } from "./Document.sol";
 import { Resolver } from "./Resolver.sol";
 
-
 contract Identifier is Document, UUPSUpgradeable {
     // TODO: We might want an array of URLs for redundancy.
     string public url;
@@ -21,7 +20,7 @@ contract Identifier is Document, UUPSUpgradeable {
 
     event URLUpdated(string url);
 
-    constructor() {}
+    constructor() { }
 
     function initialize(address _resolver, address _owner) external {
         resolver = _resolver;
@@ -56,8 +55,7 @@ contract Identifier is Document, UUPSUpgradeable {
         // Smart Wallets should always sign with EIP-712 to prevent replay attacks.
         bytes32 digest = signature.length == 65 ? _createDigest(document) : keccak256(bytes(document));
 
-        bool isValid =
-            Resolver(resolver).isValidSigImpl(owner, digest, signature, true, false);
+        bool isValid = Resolver(resolver).isValidSigImpl(owner, digest, signature, true, false);
         if (!isValid) {
             return generate(resolver, owner);
         }

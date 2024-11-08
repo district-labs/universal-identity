@@ -95,7 +95,6 @@ contract Resolver is Ownable, UniversalSigValidator, Document {
         } catch (bytes memory error) {
             return generate(address(this), account);
         }
-
     }
 
     function getAddress(address account) public view returns (address) {
