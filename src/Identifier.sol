@@ -33,47 +33,13 @@ contract Identifier is Document, UUPSUpgradeable {
         string[] memory urls_ = new string[](1);
         // If the URL is empty, we use the resolver's default  URL.
         urls_[0] = bytes(url).length == 0 ? Resolver(resolver).url() : url;
-        revert OffchainLookup(address(this), urls_, callData, this.resolve.selector, extraData);
-    }
-
-    function resolve(
-        bytes calldata response,
-        bytes calldata extraData
-    )
-        external
-        virtual
-        returns (string memory document)
-    {
-        (uint16 status, bytes memory signature, string memory document) = abi.decode(response, (uint16, bytes, string));
-        // If the DID document does not exist offchain, we generate a default DID document.
-        if (status != uint16(200)) {
-            return generate(resolver, owner);
-        }
-
-        // If the signature length is 65, we assumes it's from an EOA and we create a digest.
-        // Otherwise, we assume it's a an ERC-6492 signature formatted for a smart wallet.
-        // Smart Wallets should always sign with EIP-712 to prevent replay attacks.
-        bytes32 digest = signature.length == 65 ? _createDigest(document) : keccak256(bytes(document));
-
-        bool isValid = Resolver(resolver).isValidSigImpl(owner, digest, signature, true, false);
-        if (!isValid) {
-            return generate(resolver, owner);
-        }
-
-        return document;
+        revert OffchainLookup(resolver, urls_, callData, Resolver.resolve.selector, extraData);
     }
 
     function setUrl(string memory _url) external {
         require(msg.sender == owner, "Identity: Unauthorized");
         emit URLUpdated(_url);
         url = _url;
-    }
-
-    function _createDigest(string memory message) internal pure returns (bytes32) {
-        bytes memory prefix = "\x19Ethereum Signed Message:\n";
-        bytes memory messageBytes = bytes(message);
-        bytes memory messagePacked = abi.encodePacked(prefix, Strings.toString(messageBytes.length), message);
-        return keccak256(messagePacked);
     }
 
     function _authorizeUpgrade(address) internal view virtual override(UUPSUpgradeable) { }

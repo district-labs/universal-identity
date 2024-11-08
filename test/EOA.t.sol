@@ -127,7 +127,7 @@ contract EOATest is CoreTest {
             (uint256 resStatus, bytes memory resData) = urlFormatted.get();
 
             // Finish resolving the document i.e. verify the signature
-            string memory documentResolved = idInstance.resolve(_hexStringToBytes(string(resData)), extraData);
+            string memory documentResolved = resolver.resolve(_hexStringToBytes(string(resData)), extraData);
             assertEq(documentResolved, document, "Document should be resolved and verified");
         }
 
@@ -196,7 +196,7 @@ contract EOATest is CoreTest {
             (uint256 resStatus, bytes memory resData) = urlFormatted.get();
 
             // Finish resolving the document i.e. verify the signature
-            string memory documentResolved = idInstance.resolve(_hexStringToBytes(string(resData)), extraData);
+            string memory documentResolved = resolver.resolve(_hexStringToBytes(string(resData)), extraData);
             assertEq(documentResolved, document, "Document should be resolved and verified");
         }
 

@@ -13,8 +13,8 @@ import { Document } from "./Document.sol";
 import { Identifier } from "./Identifier.sol";
 
 contract Resolver is Ownable, UniversalSigValidator, Document, EIP712 {
-    string public constant NAME = "Resolver";
-    string public constant VERSION = "1.0.0";
+    string public constant NAME = "Universal Resolver";
+    string public constant DOMAIN_VERSION = "1";
 
     bytes32 public constant UNIVERSAL_DID_TYPEHASH = keccak256("UniversalDID(string document)");
 
@@ -26,7 +26,7 @@ contract Resolver is Ownable, UniversalSigValidator, Document, EIP712 {
 
     event IdentifierCreated(address indexed wallet, address indexed identity);
 
-    constructor(address owner, address _implementation, string memory _url) EIP712(NAME, VERSION) {
+    constructor(address owner, address _implementation, string memory _url) EIP712(NAME, DOMAIN_VERSION) {
         _initializeOwner(owner);
         implementation = _implementation;
         url = _url;
