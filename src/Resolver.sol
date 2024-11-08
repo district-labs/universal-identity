@@ -2,7 +2,9 @@
 pragma solidity >=0.8.23;
 
 // Library Imports
+import { console2 } from "forge-std/console2.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { EIP712 } from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import { Ownable } from "solady/auth/Ownable.sol";
 import { LibClone } from "solady/utils/LibClone.sol";
 
@@ -11,7 +13,12 @@ import { UniversalSigValidator } from "./utils/UniversalSigValidator.sol";
 import { Document } from "./Document.sol";
 import { Identifier } from "./Identifier.sol";
 
-contract Resolver is Ownable, UniversalSigValidator, Document {
+contract Resolver is Ownable, UniversalSigValidator, Document, EIP712 {
+    string public constant NAME = "Universal Resolver";
+    string public constant DOMAIN_VERSION = "1";
+
+    bytes32 public constant UNIVERSAL_DID_TYPEHASH = keccak256("UniversalDID(string document)");
+
     // TODO: We might want an array of URLs for redundancy.
     string public url;
     address public immutable implementation;
@@ -20,10 +27,14 @@ contract Resolver is Ownable, UniversalSigValidator, Document {
 
     event IdentifierCreated(address indexed wallet, address indexed identity);
 
-    constructor(address owner, address _implementation, string memory _url) {
+    constructor(address owner, address _implementation, string memory _url) EIP712(NAME, DOMAIN_VERSION) {
         _initializeOwner(owner);
         implementation = _implementation;
         url = _url;
+    }
+
+    function domainSeparator() public view returns (bytes32) {
+        return _domainSeparatorV4();
     }
 
     function create(address _account) external returns (address) {
@@ -38,7 +49,7 @@ contract Resolver is Ownable, UniversalSigValidator, Document {
         return instance;
     }
 
-    function lookup(address wallet) external view returns (string memory) {
+    function lookup(address wallet) external view {
         address identifier_ = getAddress(wallet);
         // If the identifier contract does not exist, an offchain DID document lookup request is initialized.
         // This is because users can update a DID document without deploying a new identity contract.
@@ -54,14 +65,7 @@ contract Resolver is Ownable, UniversalSigValidator, Document {
         Identifier(identifier_).lookup();
     }
 
-    function resolve(
-        bytes calldata response,
-        bytes calldata extraData
-    )
-        external
-        virtual
-        returns (string memory document)
-    {
+    function resolve(bytes calldata response, bytes calldata extraData) external virtual returns (string memory) {
         (uint16 status, bytes memory signature, string memory document) = abi.decode(response, (uint16, bytes, string));
 
         address account;
@@ -81,21 +85,15 @@ contract Resolver is Ownable, UniversalSigValidator, Document {
             return generate(address(this), account);
         }
 
-        // If the signature length is 65, we assumes it's from an EOA and we create a digest.
-        // Otherwise, we assume it's a an ERC-6492 signature formatted for a smart wallet.
-        // Smart Wallets should always sign with EIP-712 to prevent replay attacks.
-        bytes32 digest = signature.length == 65 ? _createDigest(document) : keccak256(bytes(document));
-
-        bool isValid = this.isValidSigImpl(account, digest, signature, true, false);
+        bytes32 digest = _createDigest(document);
         try this.isValidSigImpl(account, digest, signature, true, false) returns (bool isValid) {
             if (!isValid) {
                 return generate(address(this), account);
             }
             return document;
-        } catch (bytes memory error) {
+        } catch (bytes memory) {
             return generate(address(this), account);
         }
-
     }
 
     function getAddress(address account) public view returns (address) {
@@ -106,10 +104,8 @@ contract Resolver is Ownable, UniversalSigValidator, Document {
         return LibClone.initCodeHashERC1967(implementation);
     }
 
-    function _createDigest(string memory message) internal pure returns (bytes32) {
-        bytes memory prefix = "\x19Ethereum Signed Message:\n";
-        bytes memory messageBytes = bytes(message);
-        bytes memory messagePacked = abi.encodePacked(prefix, Strings.toString(messageBytes.length), message);
-        return keccak256(messagePacked);
+    function _createDigest(string memory document) internal view returns (bytes32 digest) {
+        bytes32 documentHash = keccak256(abi.encode(UNIVERSAL_DID_TYPEHASH, keccak256(bytes(document))));
+        digest = _hashTypedDataV4(documentHash);
     }
 }

@@ -3,7 +3,10 @@ pragma solidity >=0.8.23;
 
 import { Test } from "forge-std/Test.sol";
 import { Vm } from "forge-std/Vm.sol";
+import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
+
+import { Resolver } from "src/Resolver.sol";
 
 struct TestUser {
     string name;
@@ -63,13 +66,27 @@ abstract contract CoreTest is Test {
         pure
         returns (bytes memory, bytes32)
     {
-        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, messageHash));
-
+        bytes32 digest = MessageHashUtils.toTypedDataHash(domainSeparator, messageHash);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
         return (abi.encodePacked(r, s, v), digest);
+    }
 
-        // address signer = ecrecover(digest, v, r, s);
-        // assertEq(signer, expectedSigner, "Invalid signer");
+    function hashUniversalDID(Resolver resolver, string memory document) public view returns (bytes32 hash) {
+        hash = keccak256(abi.encode(resolver.UNIVERSAL_DID_TYPEHASH(), keccak256(bytes(document))));
+    }
+
+    function mockGetDidUrlResponse(
+        uint256 status,
+        bytes memory signature,
+        string memory document
+    )
+        public
+        pure
+        returns (uint256, bytes memory)
+    {
+        bytes memory data = abi.encode(status, signature, document);
+
+        return (status, data);
     }
 
     function buildURL(string memory baseURL, address sender) public pure returns (string memory) {
