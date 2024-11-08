@@ -38,7 +38,7 @@ contract Resolver is Ownable, UniversalSigValidator, Document {
         return instance;
     }
 
-    function lookup(address wallet) external view returns (string memory) {
+    function lookup(address wallet) external view {
         address identifier_ = getAddress(wallet);
         // If the identifier contract does not exist, an offchain DID document lookup request is initialized.
         // This is because users can update a DID document without deploying a new identity contract.
@@ -81,18 +81,14 @@ contract Resolver is Ownable, UniversalSigValidator, Document {
             return generate(address(this), account);
         }
 
-        // If the signature length is 65, we assumes it's from an EOA and we create a digest.
-        // Otherwise, we assume it's a an ERC-6492 signature formatted for a smart wallet.
-        // Smart Wallets should always sign with EIP-712 to prevent replay attacks.
-        bytes32 digest = signature.length == 65 ? _createDigest(document) : keccak256(bytes(document));
+        bytes32 digest = keccak256(bytes(document));
 
-        bool isValid = this.isValidSigImpl(account, digest, signature, true, false);
         try this.isValidSigImpl(account, digest, signature, true, false) returns (bool isValid) {
             if (!isValid) {
                 return generate(address(this), account);
             }
             return document;
-        } catch (bytes memory error) {
+        } catch (bytes memory) {
             return generate(address(this), account);
         }
     }
