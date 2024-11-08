@@ -3,6 +3,7 @@ pragma solidity >=0.8.23;
 
 // Library Imports
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { EIP712 } from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import { Ownable } from "solady/auth/Ownable.sol";
 import { LibClone } from "solady/utils/LibClone.sol";
 
@@ -11,7 +12,12 @@ import { UniversalSigValidator } from "./utils/UniversalSigValidator.sol";
 import { Document } from "./Document.sol";
 import { Identifier } from "./Identifier.sol";
 
-contract Resolver is Ownable, UniversalSigValidator, Document {
+contract Resolver is Ownable, UniversalSigValidator, Document, EIP712 {
+    string public constant NAME = "Resolver";
+    string public constant VERSION = "1.0.0";
+
+    bytes32 public constant UNIVERSAL_DID_TYPEHASH = keccak256("UniversalDID(string document)");
+
     // TODO: We might want an array of URLs for redundancy.
     string public url;
     address public immutable implementation;
@@ -20,7 +26,7 @@ contract Resolver is Ownable, UniversalSigValidator, Document {
 
     event IdentifierCreated(address indexed wallet, address indexed identity);
 
-    constructor(address owner, address _implementation, string memory _url) {
+    constructor(address owner, address _implementation, string memory _url) EIP712(NAME, VERSION) {
         _initializeOwner(owner);
         implementation = _implementation;
         url = _url;
@@ -81,8 +87,7 @@ contract Resolver is Ownable, UniversalSigValidator, Document {
             return generate(address(this), account);
         }
 
-        bytes32 digest = keccak256(bytes(document));
-
+        bytes32 digest = _createDigest(document);
         try this.isValidSigImpl(account, digest, signature, true, false) returns (bool isValid) {
             if (!isValid) {
                 return generate(address(this), account);
@@ -101,10 +106,7 @@ contract Resolver is Ownable, UniversalSigValidator, Document {
         return LibClone.initCodeHashERC1967(implementation);
     }
 
-    function _createDigest(string memory message) internal pure returns (bytes32) {
-        bytes memory prefix = "\x19Ethereum Signed Message:\n";
-        bytes memory messageBytes = bytes(message);
-        bytes memory messagePacked = abi.encodePacked(prefix, Strings.toString(messageBytes.length), message);
-        return keccak256(messagePacked);
+    function _createDigest(string memory document) internal pure returns (bytes32 digest) {
+        digest = _hashTypedDataV4(keccak256(abi.encode(UNIVERSAL_DID_TYPEHASH, document)));
     }
 }
