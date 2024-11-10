@@ -18,7 +18,7 @@ contract Deploy is BaseScript {
         Identifier identifierImplementation = new Identifier();
 
         // Deploy resolver contract
-        resolver = new Resolver(msg.sender, address(identifierImplementation), "http://localhost:8787");
+        resolver = new Resolver(msg.sender, address(identifierImplementation), "http://localhost:1111");
         vm.stopBroadcast();
     }
 }
