@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: CC0-1.0
-import "forge-std/console2.sol";
 
 // As per ERC-1271
 interface IERC1271Wallet {

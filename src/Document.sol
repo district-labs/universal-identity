@@ -7,13 +7,16 @@ contract Document {
     using Strings for uint256;
     using Strings for address;
 
-    function generate(address router, address account) public view returns (string memory) {
-        string memory did = string(
+    function generateDID(address router, address account) public view returns (string memory) {
+        return string(
             abi.encodePacked(
                 "did:uis:", block.chainid.toString(), ":", router.toHexString(), ":", account.toHexString()
             )
         );
+    }
 
+    function generateDocument(address router, address account) public view returns (string memory) {
+        string memory did = generateDID(router, account);
         string memory document = string(
             abi.encodePacked(
                 "{",

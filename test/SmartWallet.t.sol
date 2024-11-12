@@ -1,24 +1,16 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.23;
 
-// Testing Imports
-import { console2 } from "forge-std/console2.sol";
-import { Surl } from "surl/src/Surl.sol";
-import { stdJson } from "forge-std/StdJson.sol";
-
 // Lib Imports
 import { CoinbaseSmartWalletFactory } from "smart-wallet/src/CoinbaseSmartWalletFactory.sol";
 import { CoinbaseSmartWallet } from "smart-wallet/src/CoinbaseSmartWallet.sol";
 
 // Internal Imports
 import { Identifier } from "../src/Identifier.sol";
-import { Resolver } from "../src/Resolver.sol";
+import { UniversalResolver, DIDDocument, DIDStatus } from "../src/UniversalResolver.sol";
 import { CoreTest } from "./utils/CoreTest.t.sol";
 
 contract SmartWalletTest is CoreTest {
-    using Surl for *;
-    using stdJson for string;
-
     bytes32 private constant ERC6492_DETECTION_SUFFIX =
         0x6492649264926492649264926492649264926492649264926492649264926492;
 
@@ -26,7 +18,7 @@ contract SmartWalletTest is CoreTest {
     CoinbaseSmartWalletFactory internal factory;
 
     Identifier internal identifier;
-    Resolver internal resolver;
+    UniversalResolver internal resolver;
 
     function setUp() public virtual override {
         super.setUp();
@@ -34,7 +26,7 @@ contract SmartWalletTest is CoreTest {
         factory = new CoinbaseSmartWalletFactory(address(smartWalletImpl));
 
         identifier = new Identifier();
-        resolver = new Resolver(users.alice.addr, address(identifier), "http://localhost:4200/{sender}");
+        resolver = new UniversalResolver(users.alice.addr, address(identifier), "http://localhost:4200/{sender}/{data}");
     }
 
     function test_Counterfactual_Counterfactual_Unsigned() external {
@@ -44,7 +36,7 @@ contract SmartWalletTest is CoreTest {
         owners[0] = abi.encode(users.alice.addr);
         uint256 nonce = 0;
         address wallet = factory.getAddress(owners, nonce);
-        address instance = resolver.getAddress(wallet);
+        address instance = resolver.getIdentifierAddress(wallet);
 
         // // Resolve DID Document using the Resolver and Smart Wallet
         try resolver.lookup(address(wallet)) { }
@@ -64,28 +56,31 @@ contract SmartWalletTest is CoreTest {
                 bytes memory extraData
             ) = abi.decode(data, (address, string[], bytes, bytes4, bytes));
 
-            // Fetch the document from the URL
-            string memory urlFormatted = buildURL(urls[0], instance);
-            (uint256 resStatus, bytes memory resData) = urlFormatted.get();
+            // Mock the URL response
+            (uint256 resStatus, bytes memory resData) = mockGetDidUrlResponse(404, bytes("Base ID not found"), "empty");
 
             // Finish resolving the document i.e. verify the signature
-            string memory documentResolve = resolver.resolve(_hexStringToBytes(string(resData)), extraData);
-            assertEq(documentResolve, document, "Document should be resolved and verified");
+            DIDDocument memory documentResolved = resolver.resolve(resData, extraData);
+            assertEq(documentResolved.data, document, "Document should be resolved and verified");
         }
     }
 
     function test_Counterfactual_Counterfactual_Signed() external {
         // NOTE: Simplified DID document for testing purposes.
-        string memory document = "{id: did:uis:chainId:resolver:identifier }";
+        string memory document =
+            '{"@context": ["https://www.w3.org/ns/did/v1"],"id": "did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0xc1d881f37532339676b83c8c901ccb83708ba919","verificationMethod": [{"id": "did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0xc1d881f37532339676b83c8c901ccb83708ba919#controller-key","type": "EthEip6492","controller": "did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0xc1d881f37532339676b83c8c901ccb83708ba919"}],"authentication": ["did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0xc1d881f37532339676b83c8c901ccb83708ba919#controller-key"],"assertionMethod": ["did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0xc1d881f37532339676b83c8c901ccb83708ba919#controller-key"]}';
         bytes[] memory owners = new bytes[](1);
         owners[0] = abi.encode(users.alice.addr);
         uint256 nonce = 1;
         address wallet = factory.getAddress(owners, nonce);
-        address instance = resolver.getAddress(wallet);
+        address instance = resolver.getIdentifierAddress(wallet);
+
+        // Generate the EIP712 hash of the DID Document
+        bytes32 documentHash = hashUniversalDID(resolver, document);
 
         // Sign the decentralized identifier document and send it to the server
         bytes32 _MESSAGE_TYPEHASH = keccak256("CoinbaseSmartWalletMessage(bytes32 hash)");
-        bytes32 _MESSAGE = keccak256(abi.encode(_MESSAGE_TYPEHASH, keccak256(bytes(document))));
+        bytes32 _MESSAGE = keccak256(abi.encode(_MESSAGE_TYPEHASH, documentHash));
         bytes32 domainSeparator = keccak256(
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
@@ -109,12 +104,7 @@ contract SmartWalletTest is CoreTest {
             ERC6492_DETECTION_SUFFIX
         );
 
-        string[] memory headers = new string[](1);
-        headers[0] = "Content-Type: application/json";
-        string memory message = _constructMsg(vm.toString(instance), document, vm.toString(magicSignature));
-        "http://localhost:4200/write".post(headers, message);
-
-        // // Resolve DID Document using the Resolver and Smart Wallet
+        // Resolve DID Document using the Resolver and Smart Wallet
         try resolver.lookup(address(wallet)) { }
         catch (bytes memory revertData) {
             uint256 offset = 4;
@@ -132,28 +122,30 @@ contract SmartWalletTest is CoreTest {
                 bytes memory extraData
             ) = abi.decode(data, (address, string[], bytes, bytes4, bytes));
 
-            // Fetch the document from the URL
-            string memory urlFormatted = buildURL(urls[0], instance);
-            (uint256 resStatus, bytes memory resData) = urlFormatted.get();
-
+            // Mock the URL response
+            (uint256 resStatus, bytes memory resData) = mockGetDidUrlResponse(200, magicSignature, document);
             // Finish resolving the document i.e. verify the signature
-            string memory documentResolve = resolver.resolve(_hexStringToBytes(string(resData)), extraData);
-            assertEq(documentResolve, document, "Document should be resolved and verified");
+            DIDDocument memory documentResolved = resolver.resolve(resData, extraData);
+            assertEq(documentResolved.data, document, "Document should be resolved and verified");
         }
     }
 
     function test_Materialized_Counterfactual_Signed() external {
         // NOTE: Simplified DID document for testing purposes.
-        string memory document = "{id: did:uis:chainId:resolver:identifier }";
+        string memory document =
+            '{"@context": ["https://www.w3.org/ns/did/v1"],"id": "did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0xac2d678080c794a83cde2f243a012bbe792948f6","verificationMethod": [{"id": "did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0xac2d678080c794a83cde2f243a012bbe792948f6#controller-key","type": "EthEip6492","controller": "did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0xac2d678080c794a83cde2f243a012bbe792948f6"}],"authentication": ["did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0xac2d678080c794a83cde2f243a012bbe792948f6#controller-key"],"assertionMethod": ["did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0xac2d678080c794a83cde2f243a012bbe792948f6#controller-key"]}';
         bytes[] memory owners = new bytes[](1);
         owners[0] = abi.encode(users.alice.addr);
         uint256 nonce = 3;
         address wallet = address(factory.createAccount(owners, nonce));
-        address instance = resolver.getAddress(wallet);
+        address instance = resolver.getIdentifierAddress(wallet);
+
+        // Generate the EIP712 hash of the DID Document
+        bytes32 documentHash = hashUniversalDID(resolver, document);
 
         // Sign the decentralized identifier document and send it to the server
         bytes32 _MESSAGE_TYPEHASH = keccak256("CoinbaseSmartWalletMessage(bytes32 hash)");
-        bytes32 _MESSAGE = keccak256(abi.encode(_MESSAGE_TYPEHASH, keccak256(bytes(document))));
+        bytes32 _MESSAGE = keccak256(abi.encode(_MESSAGE_TYPEHASH, documentHash));
         bytes32 domainSeparator = CoinbaseSmartWallet(payable(wallet)).domainSeparator();
         (bytes memory signature, bytes32 digestEIP712) =
             signEIP712Message(domainSeparator, _MESSAGE, users.alice.privateKey);
@@ -169,12 +161,7 @@ contract SmartWalletTest is CoreTest {
             ERC6492_DETECTION_SUFFIX
         );
 
-        string[] memory headers = new string[](1);
-        headers[0] = "Content-Type: application/json";
-        string memory message = _constructMsg(vm.toString(instance), document, vm.toString(magicSignature));
-        "http://localhost:4200/write".post(headers, message);
-
-        // // Resolve DID Document using the Resolver and Smart Wallet
+        // Resolve DID Document using the Resolver and Smart Wallet
         try resolver.lookup(address(wallet)) { }
         catch (bytes memory revertData) {
             uint256 offset = 4;
@@ -192,13 +179,12 @@ contract SmartWalletTest is CoreTest {
                 bytes memory extraData
             ) = abi.decode(data, (address, string[], bytes, bytes4, bytes));
 
-            // Fetch the document from the URL
-            string memory urlFormatted = buildURL(urls[0], instance);
-            (uint256 resStatus, bytes memory resData) = urlFormatted.get();
+            // Mock the URL response
+            (uint256 resStatus, bytes memory resData) = mockGetDidUrlResponse(200, magicSignature, document);
 
             // Finish resolving the document i.e. verify the signature
-            string memory documentResolve = resolver.resolve(_hexStringToBytes(string(resData)), extraData);
-            assertEq(documentResolve, document, "Document should be resolved and verified");
+            DIDDocument memory documentResolved = resolver.resolve(resData, extraData);
+            assertEq(documentResolved.data, document, "Document should be resolved and verified");
         }
     }
 
@@ -209,7 +195,7 @@ contract SmartWalletTest is CoreTest {
         owners[0] = abi.encode(users.alice.addr);
         uint256 nonce = 4;
         address wallet = address(factory.createAccount(owners, nonce));
-        address instance = resolver.getAddress(wallet);
+        address instance = resolver.getIdentifierAddress(wallet);
 
         // // Resolve DID Document using the Resolver and Smart Wallet
         try resolver.lookup(address(wallet)) { }
@@ -229,13 +215,12 @@ contract SmartWalletTest is CoreTest {
                 bytes memory extraData
             ) = abi.decode(data, (address, string[], bytes, bytes4, bytes));
 
-            // Fetch the document from the URL
-            string memory urlFormatted = buildURL(urls[0], instance);
-            (uint256 resStatus, bytes memory resData) = urlFormatted.get();
+            // Mock the URL response
+            (uint256 resStatus, bytes memory resData) = mockGetDidUrlResponse(404, bytes("Base ID not found"), "empty");
 
             // Finish resolving the document i.e. verify the signature
-            string memory documentResolve = resolver.resolve(_hexStringToBytes(string(resData)), extraData);
-            assertEq(documentResolve, document, "Document should be resolved and verified");
+            DIDDocument memory documentResolved = resolver.resolve(resData, extraData);
+            assertEq(documentResolved.data, document, "Document should be resolved and verified");
         }
     }
 
@@ -268,13 +253,12 @@ contract SmartWalletTest is CoreTest {
                 bytes memory extraData
             ) = abi.decode(data, (address, string[], bytes, bytes4, bytes));
 
-            // Fetch the document from the URL
-            string memory urlFormatted = buildURL(urls[0], instance);
-            (uint256 resStatus, bytes memory resData) = urlFormatted.get();
+            // Mock the URL response
+            (uint256 resStatus, bytes memory resData) = mockGetDidUrlResponse(404, bytes("Base ID not found"), "empty");
 
             // Finish resolving the document i.e. verify the signature
-            string memory documentResolved = idInstance.resolve(_hexStringToBytes(string(resData)), extraData);
-            assertEq(documentResolved, document, "Document should be resolved and verified");
+            DIDDocument memory documentResolved = resolver.resolve(resData, extraData);
+            assertEq(documentResolved.data, document, "Document should be resolved and verified");
         }
 
         // // Resolve DID Document using the Resolver and Smart Wallet
@@ -295,19 +279,19 @@ contract SmartWalletTest is CoreTest {
                 bytes memory extraData
             ) = abi.decode(data, (address, string[], bytes, bytes4, bytes));
 
-            // Fetch the document from the URL
-            string memory urlFormatted = buildURL(urls[0], instance);
-            (uint256 resStatus, bytes memory resData) = urlFormatted.get();
+            // Mock the URL response
+            (uint256 resStatus, bytes memory resData) = mockGetDidUrlResponse(404, bytes("Base ID not found"), "empty");
 
             // Finish resolving the document i.e. verify the signature
-            string memory documentResolve = resolver.resolve(_hexStringToBytes(string(resData)), extraData);
-            assertEq(documentResolve, document, "Document should be resolved and verified");
+            DIDDocument memory documentResolved = resolver.resolve(resData, extraData);
+            assertEq(documentResolved.data, document, "Document should be resolved and verified");
         }
     }
 
     function test_Materialized_Materialized_Signed() external {
         // NOTE: Simplified DID document for testing purposes.
-        string memory document = "{id: did:uis:chainId:resolver:identifier }";
+        string memory document =
+            '{"@context": ["https://www.w3.org/ns/did/v1"],"id": "did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0x0b25048e23ae02138972d3881ae60ee83619371e","verificationMethod": [{"id": "did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0x0b25048e23ae02138972d3881ae60ee83619371e#controller-key","type": "EthEip6492","controller": "did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0x0b25048e23ae02138972d3881ae60ee83619371e"}],"authentication": ["did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0x0b25048e23ae02138972d3881ae60ee83619371e#controller-key"],"assertionMethod": ["did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0x0b25048e23ae02138972d3881ae60ee83619371e#controller-key"]}';
         bytes[] memory owners = new bytes[](1);
         owners[0] = abi.encode(users.alice.addr);
         uint256 nonce = 7;
@@ -315,9 +299,12 @@ contract SmartWalletTest is CoreTest {
         address instance = resolver.create(wallet);
         Identifier idInstance = Identifier(instance);
 
+        // Generate the EIP712 hash of the DID Document
+        bytes32 documentHash = hashUniversalDID(resolver, document);
+
         // Sign the decentralized identifier document and send it to the server
         bytes32 _MESSAGE_TYPEHASH = keccak256("CoinbaseSmartWalletMessage(bytes32 hash)");
-        bytes32 _MESSAGE = keccak256(abi.encode(_MESSAGE_TYPEHASH, keccak256(bytes(document))));
+        bytes32 _MESSAGE = keccak256(abi.encode(_MESSAGE_TYPEHASH, documentHash));
         bytes32 domainSeparator = CoinbaseSmartWallet(payable(wallet)).domainSeparator();
         (bytes memory signature, bytes32 digestEIP712) =
             signEIP712Message(domainSeparator, _MESSAGE, users.alice.privateKey);
@@ -332,11 +319,6 @@ contract SmartWalletTest is CoreTest {
             ),
             ERC6492_DETECTION_SUFFIX
         );
-
-        string[] memory headers = new string[](1);
-        headers[0] = "Content-Type: application/json";
-        string memory message = _constructMsg(vm.toString(instance), document, vm.toString(magicSignature));
-        "http://localhost:4200/write".post(headers, message);
 
         // Test Resolution ------------------------------------------------ //
         // Resolve DID Document using the Identifier Contract
@@ -357,54 +339,38 @@ contract SmartWalletTest is CoreTest {
                 bytes memory extraData
             ) = abi.decode(data, (address, string[], bytes, bytes4, bytes));
 
-            // Fetch the document from the URL
-            string memory urlFormatted = buildURL(urls[0], instance);
-            (uint256 resStatus, bytes memory resData) = urlFormatted.get();
+            // Mock the URL response
+            (uint256 resStatus, bytes memory resData) = mockGetDidUrlResponse(200, cbswEncodedSignature, document);
 
             // Finish resolving the document i.e. verify the signature
-            string memory documentResolved = idInstance.resolve(_hexStringToBytes(string(resData)), extraData);
-            assertEq(documentResolved, document, "Document should be resolved and verified");
+            DIDDocument memory documentResolved = resolver.resolve(resData, extraData);
+            assertEq(documentResolved.data, document, "Document should be resolved and verified");
         }
 
         // // Resolve DID Document using the Resolver and Smart Wallet
-        try resolver.lookup(address(wallet)) { }
-        catch (bytes memory revertData) {
-            uint256 offset = 4;
-            uint256 len = revertData.length - offset;
-            bytes memory data;
-            assembly {
-                data := add(revertData, offset)
-                mstore(data, len)
-            }
-            (
-                address sender,
-                string[] memory urls,
-                bytes memory callData,
-                bytes4 callbackFunction,
-                bytes memory extraData
-            ) = abi.decode(data, (address, string[], bytes, bytes4, bytes));
+        // try resolver.lookup(address(wallet)) { }
+        // catch (bytes memory revertData) {
+        //     uint256 offset = 4;
+        //     uint256 len = revertData.length - offset;
+        //     bytes memory data;
+        //     assembly {
+        //         data := add(revertData, offset)
+        //         mstore(data, len)
+        //     }
+        //     (
+        //         address sender,
+        //         string[] memory urls,
+        //         bytes memory callData,
+        //         bytes4 callbackFunction,
+        //         bytes memory extraData
+        //     ) = abi.decode(data, (address, string[], bytes, bytes4, bytes));
 
-            // Fetch the document from the URL
-            string memory urlFormatted = buildURL(urls[0], instance);
-            (uint256 resStatus, bytes memory resData) = urlFormatted.get();
+        //     // Mock the URL response
+        //     (uint256 resStatus, bytes memory resData) = mockGetDidUrlResponse(200, magicSignature, document);
 
-            // Finish resolving the document i.e. verify the signature
-            string memory documentResolve = resolver.resolve(_hexStringToBytes(string(resData)), extraData);
-            assertEq(documentResolve, document, "Document should be resolved and verified");
-        }
-    }
-
-    function _constructMsg(
-        string memory account,
-        string memory document,
-        string memory signature
-    )
-        internal
-        pure
-        returns (string memory)
-    {
-        return string.concat(
-            "{", '"address": "', account, '",', '"document": "', document, '",', '"signature": "', signature, '"}'
-        );
+        //     // Finish resolving the document i.e. verify the signature
+        //     DIDDocument memory documentResolved = resolver.resolve(resData, extraData);
+        //     assertEq(documentResolved.data, document, "Document should be resolved and verified");
+        // }
     }
 }

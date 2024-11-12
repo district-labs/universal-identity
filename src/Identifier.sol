@@ -8,74 +8,63 @@ import { UUPSUpgradeable } from "solady/utils/UUPSUpgradeable.sol";
 
 // Internal Imports
 import { Document } from "./Document.sol";
-import { Resolver } from "./Resolver.sol";
-
+import { UniversalResolver } from "./UniversalResolver.sol";
 
 contract Identifier is Document, UUPSUpgradeable {
-    // TODO: We might want an array of URLs for redundancy.
-    string public url;
+    /// @notice The address of the public resolver.
     address public resolver;
+
+    /// @notice The address of the account that owns the identifier.
     address public owner;
 
+    // TODO: We might want an array of URLs for redundancy.
+    string public url;
+
+    /// @notice Emitted when an offchain DID document lookup is initialized.
+    /// @dev Follows EIP-3668 standard for offchain data requests.
+    /// @param sender The address of the sender.
+    /// @param urls The URLs to lookup.
+    /// @param callData The call data to pass to the callback function.
+    /// @param callbackFunction The callback function to call.
+    /// @param extraData The extra data to pass to the callback function.
     error OffchainLookup(address sender, string[] urls, bytes callData, bytes4 callbackFunction, bytes extraData);
 
+    /// @notice Reverts if the caller is not the owner.
+    error InvalidOwner();
+
+    /// @notice Emitted when the URL is updated.
+    /// @param url The new URL.
     event URLUpdated(string url);
 
-    constructor() {}
+    constructor() { }
 
+    /// @notice Initializes the identifier with the resolver and owner.
+    /// @param _resolver The address of the public resolver.
+    /// @param _owner The address of the account that owns the identifier.
     function initialize(address _resolver, address _owner) external {
         resolver = _resolver;
         owner = _owner;
     }
 
-    function lookup() external view {
+    /// @notice Looks up a DID document for a given wallet.
+    /// @dev Step 1 of the DID resolution process.
+    function lookup() external view returns (string memory) {
         bytes memory callData = abi.encodePacked(owner);
         bytes memory extraData = callData;
         string[] memory urls_ = new string[](1);
         // If the URL is empty, we use the resolver's default  URL.
-        urls_[0] = bytes(url).length == 0 ? Resolver(resolver).url() : url;
-        revert OffchainLookup(address(this), urls_, callData, this.resolve.selector, extraData);
+        urls_[0] = bytes(url).length == 0 ? UniversalResolver(resolver).url() : url;
+        revert OffchainLookup(resolver, urls_, callData, UniversalResolver.resolve.selector, extraData);
     }
 
-    function resolve(
-        bytes calldata response,
-        bytes calldata extraData
-    )
-        external
-        virtual
-        returns (string memory document)
-    {
-        (uint16 status, bytes memory signature, string memory document) = abi.decode(response, (uint16, bytes, string));
-        // If the DID document does not exist offchain, we generate a default DID document.
-        if (status != uint16(200)) {
-            return generate(resolver, owner);
-        }
-
-        // If the signature length is 65, we assumes it's from an EOA and we create a digest.
-        // Otherwise, we assume it's a an ERC-6492 signature formatted for a smart wallet.
-        // Smart Wallets should always sign with EIP-712 to prevent replay attacks.
-        bytes32 digest = signature.length == 65 ? _createDigest(document) : keccak256(bytes(document));
-
-        bool isValid =
-            Resolver(resolver).isValidSigImpl(owner, digest, signature, true, false);
-        if (!isValid) {
-            return generate(resolver, owner);
-        }
-
-        return document;
-    }
-
+    /// @notice Updates the URL of the DID document.
+    /// @param _url The new URL.
     function setUrl(string memory _url) external {
-        require(msg.sender == owner, "Identity: Unauthorized");
+        if (msg.sender != owner) {
+            revert InvalidOwner();
+        }
         emit URLUpdated(_url);
         url = _url;
-    }
-
-    function _createDigest(string memory message) internal pure returns (bytes32) {
-        bytes memory prefix = "\x19Ethereum Signed Message:\n";
-        bytes memory messageBytes = bytes(message);
-        bytes memory messagePacked = abi.encodePacked(prefix, Strings.toString(messageBytes.length), message);
-        return keccak256(messagePacked);
     }
 
     function _authorizeUpgrade(address) internal view virtual override(UUPSUpgradeable) { }
