@@ -6,7 +6,7 @@ import { Vm } from "forge-std/Vm.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
-import { Resolver } from "src/Resolver.sol";
+import { UniversalResolver } from "src/UniversalResolver.sol";
 
 struct TestUser {
     string name;
@@ -71,7 +71,7 @@ abstract contract CoreTest is Test {
         return (abi.encodePacked(r, s, v), digest);
     }
 
-    function hashUniversalDID(Resolver resolver, string memory document) public view returns (bytes32 hash) {
+    function hashUniversalDID(UniversalResolver resolver, string memory document) public view returns (bytes32 hash) {
         hash = keccak256(abi.encode(resolver.UNIVERSAL_DID_TYPEHASH(), keccak256(bytes(document))));
     }
 

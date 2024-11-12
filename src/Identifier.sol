@@ -8,15 +8,15 @@ import { UUPSUpgradeable } from "solady/utils/UUPSUpgradeable.sol";
 
 // Internal Imports
 import { Document } from "./Document.sol";
-import { Resolver } from "./Resolver.sol";
+import { UniversalResolver } from "./UniversalResolver.sol";
 
 contract Identifier is Document, UUPSUpgradeable {
     /// @notice The address of the public resolver.
     address public resolver;
-    
+
     /// @notice The address of the account that owns the identifier.
     address public owner;
-    
+
     // TODO: We might want an array of URLs for redundancy.
     string public url;
 
@@ -53,8 +53,8 @@ contract Identifier is Document, UUPSUpgradeable {
         bytes memory extraData = callData;
         string[] memory urls_ = new string[](1);
         // If the URL is empty, we use the resolver's default  URL.
-        urls_[0] = bytes(url).length == 0 ? Resolver(resolver).url() : url;
-        revert OffchainLookup(resolver, urls_, callData, Resolver.resolve.selector, extraData);
+        urls_[0] = bytes(url).length == 0 ? UniversalResolver(resolver).url() : url;
+        revert OffchainLookup(resolver, urls_, callData, UniversalResolver.resolve.selector, extraData);
     }
 
     /// @notice Updates the URL of the DID document.

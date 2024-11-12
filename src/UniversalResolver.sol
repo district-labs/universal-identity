@@ -24,8 +24,7 @@ struct DIDDocument {
     DIDStatus status;
 }
 
-contract Resolver is Ownable, UniversalSigValidator, Document, EIP712 {
-
+contract UniversalResolver is Ownable, UniversalSigValidator, Document, EIP712 {
     /// @notice The implementation of the identity contract.
     address public immutable implementation;
 
@@ -49,7 +48,7 @@ contract Resolver is Ownable, UniversalSigValidator, Document, EIP712 {
     /// @param callbackFunction The callback function to call.
     /// @param extraData The extra data to pass to the callback function.
     error OffchainLookup(address sender, string[] urls, bytes callData, bytes4 callbackFunction, bytes extraData);
-    
+
     /// @notice Emitted when a new identifier is created.
     /// @param wallet The wallet address of the identifier.
     /// @param identity The address of the identifier contract.
@@ -166,11 +165,7 @@ contract Resolver is Ownable, UniversalSigValidator, Document, EIP712 {
                     status: DIDStatus.Fallback
                 });
             }
-            return DIDDocument({
-                data: document,
-                signature: signature,
-                status: DIDStatus.Signed
-            });
+            return DIDDocument({ data: document, signature: signature, status: DIDStatus.Signed });
         } catch (bytes memory) {
             return DIDDocument({
                 data: generateDocument(address(this), account),
@@ -182,7 +177,7 @@ contract Resolver is Ownable, UniversalSigValidator, Document, EIP712 {
 
     /// @notice Updates the URL of the DID document.
     /// @param _url The new URL.
-    function setUrl(string memory _url) onlyOwner external {
+    function setUrl(string memory _url) external onlyOwner {
         emit URLUpdated(_url);
         url = _url;
     }

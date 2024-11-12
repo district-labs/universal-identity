@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: CC0-1.0
 
-import { console2 } from "forge-std/console2.sol";
 // As per ERC-1271
-
 interface IERC1271Wallet {
     function isValidSignature(bytes32 hash, bytes calldata signature) external view returns (bytes4 magicValue);
 }
@@ -67,8 +65,6 @@ contract UniversalSigValidator {
         // Try ERC-1271 verification
         if (isCounterfactual || contractCodeLen > 0) {
             try IERC1271Wallet(_signer).isValidSignature(_hash, sigToValidate) returns (bytes4 magicValue) {
-                console2.log("ERC1271 magicValue: ");
-                console2.logBytes4(magicValue);
                 bool isValid = magicValue == ERC1271_SUCCESS;
                 if (!isValid) {
                     // retry, but this time assume the prefix is a prepare call

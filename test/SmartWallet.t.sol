@@ -7,7 +7,7 @@ import { CoinbaseSmartWallet } from "smart-wallet/src/CoinbaseSmartWallet.sol";
 
 // Internal Imports
 import { Identifier } from "../src/Identifier.sol";
-import { Resolver, DIDDocument, DIDStatus } from "../src/Resolver.sol";
+import { UniversalResolver, DIDDocument, DIDStatus } from "../src/UniversalResolver.sol";
 import { CoreTest } from "./utils/CoreTest.t.sol";
 
 contract SmartWalletTest is CoreTest {
@@ -18,7 +18,7 @@ contract SmartWalletTest is CoreTest {
     CoinbaseSmartWalletFactory internal factory;
 
     Identifier internal identifier;
-    Resolver internal resolver;
+    UniversalResolver internal resolver;
 
     function setUp() public virtual override {
         super.setUp();
@@ -26,7 +26,7 @@ contract SmartWalletTest is CoreTest {
         factory = new CoinbaseSmartWalletFactory(address(smartWalletImpl));
 
         identifier = new Identifier();
-        resolver = new Resolver(users.alice.addr, address(identifier), "http://localhost:4200/{sender}");
+        resolver = new UniversalResolver(users.alice.addr, address(identifier), "http://localhost:4200/{sender}/{data}");
     }
 
     function test_Counterfactual_Counterfactual_Unsigned() external {
@@ -67,7 +67,8 @@ contract SmartWalletTest is CoreTest {
 
     function test_Counterfactual_Counterfactual_Signed() external {
         // NOTE: Simplified DID document for testing purposes.
-        string memory document = '{"@context": ["https://www.w3.org/ns/did/v1"],"id": "did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0xc1d881f37532339676b83c8c901ccb83708ba919","verificationMethod": [{"id": "did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0xc1d881f37532339676b83c8c901ccb83708ba919#controller-key","type": "EthEip6492","controller": "did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0xc1d881f37532339676b83c8c901ccb83708ba919"}],"authentication": ["did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0xc1d881f37532339676b83c8c901ccb83708ba919#controller-key"],"assertionMethod": ["did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0xc1d881f37532339676b83c8c901ccb83708ba919#controller-key"]}';
+        string memory document =
+            '{"@context": ["https://www.w3.org/ns/did/v1"],"id": "did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0xc1d881f37532339676b83c8c901ccb83708ba919","verificationMethod": [{"id": "did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0xc1d881f37532339676b83c8c901ccb83708ba919#controller-key","type": "EthEip6492","controller": "did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0xc1d881f37532339676b83c8c901ccb83708ba919"}],"authentication": ["did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0xc1d881f37532339676b83c8c901ccb83708ba919#controller-key"],"assertionMethod": ["did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0xc1d881f37532339676b83c8c901ccb83708ba919#controller-key"]}';
         bytes[] memory owners = new bytes[](1);
         owners[0] = abi.encode(users.alice.addr);
         uint256 nonce = 1;
@@ -131,7 +132,8 @@ contract SmartWalletTest is CoreTest {
 
     function test_Materialized_Counterfactual_Signed() external {
         // NOTE: Simplified DID document for testing purposes.
-        string memory document = '{"@context": ["https://www.w3.org/ns/did/v1"],"id": "did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0xac2d678080c794a83cde2f243a012bbe792948f6","verificationMethod": [{"id": "did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0xac2d678080c794a83cde2f243a012bbe792948f6#controller-key","type": "EthEip6492","controller": "did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0xac2d678080c794a83cde2f243a012bbe792948f6"}],"authentication": ["did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0xac2d678080c794a83cde2f243a012bbe792948f6#controller-key"],"assertionMethod": ["did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0xac2d678080c794a83cde2f243a012bbe792948f6#controller-key"]}';
+        string memory document =
+            '{"@context": ["https://www.w3.org/ns/did/v1"],"id": "did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0xac2d678080c794a83cde2f243a012bbe792948f6","verificationMethod": [{"id": "did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0xac2d678080c794a83cde2f243a012bbe792948f6#controller-key","type": "EthEip6492","controller": "did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0xac2d678080c794a83cde2f243a012bbe792948f6"}],"authentication": ["did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0xac2d678080c794a83cde2f243a012bbe792948f6#controller-key"],"assertionMethod": ["did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0xac2d678080c794a83cde2f243a012bbe792948f6#controller-key"]}';
         bytes[] memory owners = new bytes[](1);
         owners[0] = abi.encode(users.alice.addr);
         uint256 nonce = 3;
@@ -288,7 +290,8 @@ contract SmartWalletTest is CoreTest {
 
     function test_Materialized_Materialized_Signed() external {
         // NOTE: Simplified DID document for testing purposes.
-        string memory document = '{"@context": ["https://www.w3.org/ns/did/v1"],"id": "did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0x0b25048e23ae02138972d3881ae60ee83619371e","verificationMethod": [{"id": "did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0x0b25048e23ae02138972d3881ae60ee83619371e#controller-key","type": "EthEip6492","controller": "did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0x0b25048e23ae02138972d3881ae60ee83619371e"}],"authentication": ["did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0x0b25048e23ae02138972d3881ae60ee83619371e#controller-key"],"assertionMethod": ["did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0x0b25048e23ae02138972d3881ae60ee83619371e#controller-key"]}';
+        string memory document =
+            '{"@context": ["https://www.w3.org/ns/did/v1"],"id": "did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0x0b25048e23ae02138972d3881ae60ee83619371e","verificationMethod": [{"id": "did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0x0b25048e23ae02138972d3881ae60ee83619371e#controller-key","type": "EthEip6492","controller": "did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0x0b25048e23ae02138972d3881ae60ee83619371e"}],"authentication": ["did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0x0b25048e23ae02138972d3881ae60ee83619371e#controller-key"],"assertionMethod": ["did:uis:31337:0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9:0x0b25048e23ae02138972d3881ae60ee83619371e#controller-key"]}';
         bytes[] memory owners = new bytes[](1);
         owners[0] = abi.encode(users.alice.addr);
         uint256 nonce = 7;

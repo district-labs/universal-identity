@@ -3,17 +3,17 @@ pragma solidity >=0.8.23;
 
 // Internal Imports
 import { Identifier } from "../src/Identifier.sol";
-import { Resolver, DIDDocument, DIDStatus } from "../src/Resolver.sol";
+import { UniversalResolver, DIDDocument, DIDStatus } from "../src/UniversalResolver.sol";
 import { CoreTest } from "./utils/CoreTest.t.sol";
 
 contract EOATest is CoreTest {
     Identifier internal identifier;
-    Resolver internal resolver;
+    UniversalResolver internal resolver;
 
     function setUp() public virtual override {
         super.setUp();
         identifier = new Identifier();
-        resolver = new Resolver(users.alice.addr, address(identifier), "http://localhost:4200/{sender}");
+        resolver = new UniversalResolver(users.alice.addr, address(identifier), "http://localhost:4200/{sender}");
     }
 
     function test_EOA_Counterfactual_Unsigned() external {
