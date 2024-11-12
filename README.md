@@ -1,18 +1,12 @@
 # Universal Identity
 
-The Universal Identity System is a scalable DID standard for the future of Ethereum: 
+The Universal Identity System is a scalable DID standard for the Ethereum ecosystem: 
 
 - Free Setup: no gas fees to create or update
 - Scalable Design: minimal onchain data storage
 - Verifiable Signatures: EIP-3668 for offchain data lookups
 
 The UIS DID standard supports all EVM account types: EOA, Contract, and Smart Wallets.
-
-## Why UIS?
-
-Ethereum is the backbone of the decentralized web--it is time for a DID standard that is designed for the future of Ethereum.
-
-Drawing upon years of experience, research and experimentation, UIS is a scalable DID standard that is designed to be gas efficient, scalable, and secure.
 
 ### Background on DID Standards
 
@@ -29,21 +23,6 @@ These limitations hinder widespread adoption and scalability, prompting the need
 UIS addresses these challenges by striking a balance between onchain and offchain.
 
 It maintains the core principles of self-sovereign identity while achieving scalability through trusted centralized services. By combining elements of `did:web`, `did:pkh`, and `did:ethr`, UIS forms a modern DID standard capable of scaling to millions of users.
-
-## Getting Started
-
-The UIS smart contracts utilize [EIP-3668](https://eips.ethereum.org/EIPS/eip-3668) for offchain data lookups.
-
-Start Backend:
-
-```sh
-pnpm run-server
-```
-
-Run Tests:
-```sh
-forge test --via-ir -vvv
-```
 
 ## Usage
 
@@ -91,8 +70,9 @@ $ forge fmt
 
 ## Contributors
 
-- Carl Fairclough @ Oscillator, Inc
-- Kames Geraghty @ District Labs, Inc
+- [Carl Fairclough](https://x.com/carlfairclough) | [Oscillator, Inc](https://osc.wtf)
+- [Vitor Marthendal](https://x.com/VitorMarthendal) | [District Labs, Inc](https://www.districtlabs.com/)
+- [Kames Geraghty](https://x.com/KamesGeraghty) | [District Labs, Inc](https://www.districtlabs.com/)
 
 ## License
 
