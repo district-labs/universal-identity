@@ -2,7 +2,6 @@
 pragma solidity >=0.8.23;
 
 // Library Imports
-import { console2 } from "forge-std/console2.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { EIP712 } from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import { Ownable } from "solady/auth/Ownable.sol";
@@ -107,7 +106,7 @@ contract Resolver is Ownable, UniversalSigValidator, Document, EIP712 {
     /// @notice Looks up a DID document for a given wallet.
     /// @dev Step 1 of the DID resolution process.
     /// @param wallet The wallet to lookup the DID document for.
-    function lookup(address wallet) external view returns (string memory) {
+    function lookup(address wallet) external view returns (DIDDocument memory identifier) {
         address identifier_ = getIdentifierAddress(wallet);
         // If the identifier contract does not exist, an offchain DID document lookup request is initialized.
         // This is because users can update a DID document without deploying a new identity contract.
