@@ -3,3 +3,4 @@ forge-std/=node_modules/forge-std/src/
 smart-wallet/=lib/smart-wallet/
 solady/=lib/solady/src/
 surl/=lib/surl/
+safe-singleton-deployer-sol/=lib/safe-singleton-deployer-sol/src/
