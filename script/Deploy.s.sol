@@ -9,6 +9,7 @@ import { UniversalResolver } from "../src/UniversalResolver.sol";
 
 contract Deploy is BaseScript {
     bytes32 salt = vm.envBytes32("SALT");
+    address resolverOwner = vm.envAddress("RESOLVER_OWNER");
     string resolverUrl = vm.envString("RESOLVER_URL");
     uint256 private deployerPrivateKey = vm.envUint("PRIVATE_KEY");
 
@@ -25,7 +26,7 @@ contract Deploy is BaseScript {
         resolver = UniversalResolver(
             SafeSingletonDeployer.deploy({
                 creationCode: type(UniversalResolver).creationCode,
-                args: abi.encode(msg.sender, address(identifierImplementation), resolverUrl),
+                args: abi.encode(resolverOwner, address(identifierImplementation), resolverUrl),
                 salt: salt
             })
         );
